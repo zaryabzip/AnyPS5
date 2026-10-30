@@ -15,7 +15,6 @@
 | `sceNpWebApiGetConnectionStats` | `UJ8H+7kVQUE` |
 | `sceNpWebApiGetErrorCode` | `2qSZ0DgwTsc` |
 | `sceNpWebApiIntCreateCtxIndExtdPushEventFilter` | `c1pKoztonB8` |
-| `sceNpWebApiIntCreateRequest` | `N2Jbx4tIaQ4` |
 | `sceNpWebApiIntCreateServicePushEventFilter` | `TZSep4xB4EY` |
 | `sceNpWebApiIntRegisterServicePushEventCallback` | `VjVukb2EWPc` |
 | `sceNpWebApiIntRegisterServicePushEventCallbackA` | `sfq23ZVHVEw` |
@@ -33,3 +32,4 @@
 
 - [sceNpWebApiInitializeForPresence, sceNpWebApiVshInitialize and sceNpWebApiIntInitialize](../../../core/libs/prx/libSceNpWebApi/Export.cpp) (libSceNpWebApi) - create a library context like `sceNpWebApiInitialize`, as [shadPS4](https://github.com/shadps4-emu/shadPS4/blob/0614ce324be092791b758d79f93d9f1ca5b10a81/src/core/libraries/np/np_web_api/np_web_api.cpp#L380-L647) does on the PS4: the 32-byte internal argument structure and its `structSize` check (`INVALID_ARGUMENT`) follow its [declaration](https://github.com/shadps4-emu/shadPS4/blob/0614ce324be092791b758d79f93d9f1ca5b10a81/src/core/libraries/np/np_web_api/np_web_api.h#L100-L106). The context type shadPS4 records and the internal name are not kept, because nothing reads them, as with `libSceNpWebApi2`. Not measured on a console
 - [sceNpWebApiRegisterNotificationCallback and sceNpWebApiUnregisterNotificationCallback](../../../core/libs/prx/libSceNpWebApi/Export.cpp) (libSceNpWebApi) - check a null callback, then the library and user context, as [shadPS4](https://github.com/shadps4-emu/shadPS4/blob/0614ce324be092791b758d79f93d9f1ca5b10a81/src/core/libraries/np/np_web_api/np_web_api_internal.cpp#L305-L346) does, and return 0. The callback is not kept, because no NP notification can arrive offline, so it would never be called. Not measured on a console
+- [sceNpWebApiIntCreateRequest](../../../core/libs/prx/libSceNpWebApi/Export.cpp) (libSceNpWebApi) - creates a request like `sceNpWebApiCreateRequest`, as [shadPS4](https://github.com/shadps4-emu/shadPS4/blob/0614ce324be092791b758d79f93d9f1ca5b10a81/src/core/libraries/np/np_web_api/np_web_api.cpp#L411-L432) does: a null group or path, or a method past PATCH, returns `INVALID_ARGUMENT` whatever the SDK version, then a content length without a type returns `INVALID_CONTENT_PARAMETER`. The internal extra arguments are not read. Not measured on a console
