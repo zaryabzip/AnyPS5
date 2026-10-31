@@ -150,6 +150,8 @@
 #include "prx/libSceAgcVsh/include/Api.hpp"
 #include <cstdint>
 #include <cstddef>
+#include <stdexcept>
+#include <string>
 #include "SceTypes.hpp"
 #include "prx/libc/include/General.hpp"
 #include "prx/libSceAgc/Acb/include/Control.hpp"
@@ -185,6 +187,16 @@
 #include "prx/libSceAgc/Shader/include/InterpolantMapping.hpp"
 #include "prx/libSceAgc/Shader/include/LinkShaders.hpp"
 #include "prx/libSceAgc/Shader/include/PrimState.hpp"
+
+namespace {
+
+[[noreturn]] void NotAllowedFromVsh(const char* function) {
+    std::string name(function);
+    name.erase(name.rfind("_nid_no_patch"));
+    throw std::runtime_error(name + "() is not allowed to be called from agc vsh.");
+}
+
+}
 
 extern "C" {
 
@@ -238,8 +250,7 @@ std::uint64_t APS5_VABI sceAgcAcbCopyDataGetSize_nid_no_patch(void) {
 APS5_EXPORT("CbQh3DKMSno", sceAgcAcbCopyDataGetSize_nid_no_patch);
 
 int APS5_VABI sceAgcAcbWaitUntilSafeForRendering_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("GPbUp9jXQa8", sceAgcAcbWaitUntilSafeForRendering_nid_no_patch);
 
@@ -277,8 +288,7 @@ int APS5_VABI sceAgcCondExecPatchSetEnd_nid_no_patch(uint32_t* cmd, const volati
 APS5_EXPORT("ORWsxIbk4TE", sceAgcCondExecPatchSetEnd_nid_no_patch);
 
 int APS5_VABI sceAgcDcbAtomicGds_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("pH3-dfRpfA0", sceAgcDcbAtomicGds_nid_no_patch);
 
@@ -326,8 +336,7 @@ uint32_t APS5_VABI sceAgcGetPacketSize_nid_no_patch(uint32_t* packet) {
 APS5_EXPORT("Lkf86B98qPc", sceAgcGetPacketSize_nid_no_patch);
 
 int APS5_VABI sceAgcAcbAcquireMem_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("KT-hTp-Ch14", sceAgcAcbAcquireMem_nid_no_patch);
 
@@ -343,8 +352,7 @@ int APS5_VABI sceAgcDcbSetIndexIndirectArgs_nid_no_patch(void) {
 APS5_EXPORT("0o3VDdtA6nM", sceAgcDcbSetIndexIndirectArgs_nid_no_patch);
 
 int APS5_VABI sceAgcAcbDmaData_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("-RnpfpxIhec", sceAgcAcbDmaData_nid_no_patch);
 
@@ -425,8 +433,7 @@ int APS5_VABI sceAgcDcbWaitOnAddressGetSize_nid_no_patch(void) {
 APS5_EXPORT("43WJ08sSugE", sceAgcDcbWaitOnAddressGetSize_nid_no_patch);
 
 int APS5_VABI sceAgcAcbAtomicGds_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("cduV1f0dcGQ", sceAgcAcbAtomicGds_nid_no_patch);
 
@@ -489,8 +496,7 @@ int APS5_VABI sceAgcWaitRegMemPatchReference_nid_no_patch(std::uint32_t* cmd, st
 APS5_EXPORT("7nOoijNPvEU", sceAgcWaitRegMemPatchReference_nid_no_patch);
 
 int APS5_VABI sceAgcAcbRewind_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("DwICrVxerkY", sceAgcAcbRewind_nid_no_patch);
 
@@ -500,14 +506,12 @@ uint32_t APS5_VABI sceAgcAcbCondExecGetSize_nid_no_patch(void) {
 APS5_EXPORT("ozKzBP4aki4", sceAgcAcbCondExecGetSize_nid_no_patch);
 
 int APS5_VABI sceAgcSuspendPointAndCheckStatus_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("b+fis+WZ3Ig", sceAgcSuspendPointAndCheckStatus_nid_no_patch);
 
 int APS5_VABI sceAgcAcbWaitRegMem_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("htn36gPnBk4", sceAgcAcbWaitRegMem_nid_no_patch);
 
@@ -523,14 +527,12 @@ int APS5_VABI sceAgcSetCxRegIndirectPatchSetNumRegisters_nid_no_patch(std::uint3
 APS5_EXPORT("whb1RL7K4Ss", sceAgcSetCxRegIndirectPatchSetNumRegisters_nid_no_patch);
 
 int APS5_VABI sceAgcDcbContextStateOp_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("HabmgqPwPw0", sceAgcDcbContextStateOp_nid_no_patch);
 
 int APS5_VABI sceAgcAcbWriteData_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("eZ4+17OQz4Q", sceAgcAcbWriteData_nid_no_patch);
 
@@ -551,8 +553,7 @@ int APS5_VABI sceAgcCbNop_nid_no_patch(void) {
 APS5_EXPORT("LtTouSCZjHM", sceAgcCbNop_nid_no_patch);
 
 int APS5_VABI sceAgcDcbResetQueue_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("TRO721eVt4g", sceAgcDcbResetQueue_nid_no_patch);
 
@@ -578,8 +579,7 @@ std::uint32_t APS5_VABI sceAgcCbQueueEndOfPipeActionGetSize_nid_no_patch(void) {
 APS5_EXPORT("hL7C0IRpWZI", sceAgcCbQueueEndOfPipeActionGetSize_nid_no_patch);
 
 int APS5_VABI sceAgcDcbSetFlip_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("YUeqkyT7mEQ", sceAgcDcbSetFlip_nid_no_patch);
 
@@ -629,8 +629,7 @@ std::uint32_t APS5_VABI sceAgcDcbSetZPassPredicationEnableGetSize_nid_no_patch(v
 APS5_EXPORT("XN+Iuu7XsM8", sceAgcDcbSetZPassPredicationEnableGetSize_nid_no_patch);
 
 int APS5_VABI sceAgcDcbWaitUntilSafeForRendering_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("MWiElSNE8j8", sceAgcDcbWaitUntilSafeForRendering_nid_no_patch);
 
@@ -676,8 +675,7 @@ int APS5_VABI sceAgcQueueEndOfPipeActionPatchData_nid_no_patch(uint32_t* cmd, ui
 APS5_EXPORT("MlEw1feXcjg", sceAgcQueueEndOfPipeActionPatchData_nid_no_patch);
 
 int APS5_VABI sceAgcGetRegisterDefaultsInternal_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("uIwxsqDlHRc", sceAgcGetRegisterDefaultsInternal_nid_no_patch);
 
@@ -699,8 +697,7 @@ int APS5_VABI sceAgcDcbCondExec_nid_no_patch(void) {
 APS5_EXPORT("BIPexNBSGog", sceAgcDcbCondExec_nid_no_patch);
 
 int APS5_VABI sceAgcAcbSetMarker_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("xAeBOa0A3kk", sceAgcAcbSetMarker_nid_no_patch);
 
@@ -710,8 +707,7 @@ uint32_t APS5_VABI sceAgcDcbDrawIndexOffsetGetSize_nid_no_patch(void) {
 APS5_EXPORT("qMlfB1ZhMDc", sceAgcDcbDrawIndexOffsetGetSize_nid_no_patch);
 
 int APS5_VABI sceAgcAcbJump_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("e1DFTg+Sd8U", sceAgcAcbJump_nid_no_patch);
 
@@ -732,8 +728,7 @@ std::uint32_t APS5_VABI sceAgcDcbStallCommandBufferParserGetSize_nid_no_patch(vo
 APS5_EXPORT("+u6dKSLWM2o", sceAgcDcbStallCommandBufferParserGetSize_nid_no_patch);
 
 int APS5_VABI sceAgcSuspendPoint_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("h9z6+0hEydk", sceAgcSuspendPoint_nid_no_patch);
 
@@ -780,8 +775,7 @@ int APS5_VABI sceAgcDcbWaitRegMem_nid_no_patch(void) {
 APS5_EXPORT("VmW0Tdpy420", sceAgcDcbWaitRegMem_nid_no_patch);
 
 int APS5_VABI sceAgcGetRegisterDefaults_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("Wi82ArQtAwg", sceAgcGetRegisterDefaults_nid_no_patch);
 
@@ -803,8 +797,7 @@ int APS5_VABI sceAgcDcbDispatchIndirect_nid_no_patch(void) {
 APS5_EXPORT("CtB+A9-VxO0", sceAgcDcbDispatchIndirect_nid_no_patch);
 
 int APS5_VABI sceAgcCbMemSemaphore_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("vHX9guneRBY", sceAgcCbMemSemaphore_nid_no_patch);
 
@@ -852,8 +845,7 @@ std::uint32_t APS5_VABI sceAgcDcbJumpGetSize_nid_no_patch(void) {
 APS5_EXPORT("VEGu4dixjUg", sceAgcDcbJumpGetSize_nid_no_patch);
 
 int APS5_VABI sceAgcAcbPrimeUtcl2_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("szG7hz2yEhA", sceAgcAcbPrimeUtcl2_nid_no_patch);
 
@@ -901,8 +893,7 @@ int APS5_VABI sceAgcDcbDrawIndirect_nid_no_patch(void) {
 APS5_EXPORT("1q1titRBL6o", sceAgcDcbDrawIndirect_nid_no_patch);
 
 int APS5_VABI sceAgcAcbSetFlip_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("ebixW91gpPw", sceAgcAcbSetFlip_nid_no_patch);
 
@@ -971,8 +962,7 @@ std::uint32_t APS5_VABI sceAgcDcbDrawIndexIndirectGetSize_nid_no_patch(void) {
 APS5_EXPORT("mStuvI0zOtc", sceAgcDcbDrawIndexIndirectGetSize_nid_no_patch);
 
 int APS5_VABI sceAgcAcbCopyData_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("qzMN2XKGA4k", sceAgcAcbCopyData_nid_no_patch);
 
@@ -982,8 +972,7 @@ uint32_t APS5_VABI sceAgcDcbWriteDataGetSize_nid_no_patch(uint32_t numDwords) {
 APS5_EXPORT("p9tI+yTvx68", sceAgcDcbWriteDataGetSize_nid_no_patch);
 
 int APS5_VABI sceAgcAcbAtomicMem_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("XKKuA6VkSRc", sceAgcAcbAtomicMem_nid_no_patch);
 
@@ -993,8 +982,7 @@ std::uint32_t APS5_VABI sceAgcAcbPrimeUtcl2GetSize_nid_no_patch(void) {
 APS5_EXPORT("eCjKaqeeQ5s", sceAgcAcbPrimeUtcl2GetSize_nid_no_patch);
 
 int APS5_VABI sceAgcAcbResetQueue_nid_no_patch(void) {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    NotAllowedFromVsh(__func__);
 }
 APS5_EXPORT("JrtiDtKeS38", sceAgcAcbResetQueue_nid_no_patch);
 
