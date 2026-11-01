@@ -305,7 +305,7 @@ static void CheckTableCalls() {
     Require(cfg.FindBlockByProgramCounter(28u * 4u).terminator.trueBlock == block(10u));
     Require(cfg.FindBlockByProgramCounter(45u * 4u).terminator.trueBlock == block(47u));
     Require(cfg.FindBlockByProgramCounter(47u * 4u).terminator.trueBlock == block(10u));
-    const auto predecessors = [&](std::uint32_t word) { return cfg.FindBlockByProgramCounter(word * 4u).predecessors; };
+    const auto predecessors = [&](std::uint32_t word) -> const std::vector<std::uint32_t>& { return cfg.FindBlockByProgramCounter(word * 4u).predecessors; };
     Require(std::ranges::find(predecessors(27u), block(28u)) == predecessors(27u).end() && std::ranges::find(predecessors(46u), block(47u)) == predecessors(46u).end());
     Require(std::ranges::find(predecessors(10u), block(28u)) != predecessors(10u).end() && std::ranges::find(predecessors(10u), block(47u)) != predecessors(10u).end());
     Require(cfg.unlinkedCallProgramCounters == std::vector<std::uint32_t>{53u * 4u});
