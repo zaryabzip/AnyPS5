@@ -1174,6 +1174,15 @@ void GraphBuilder::linkBlocks(std::vector<BasicBlock>& blocks, const RdnaProgram
     for (const auto& block : blocks) {
         programCounterToBlock.emplace(block.startProgramCounter, block.id);
     }
+    const auto skipBranchRelays = [&](std::uint32_t blockId) {
+        std::set<std::uint32_t> visited;
+        while (visited.insert(blockId).second) {
+            const auto& relay = blocks[blockId];
+            if (relay.instructionEnd - relay.instructionBegin != 1u || program.instructions[relay.instructionBegin].op != RdnaOpcode::SBranch) break;
+            blockId = programCounterToBlock.at(program.instructions[relay.instructionBegin].branchTarget);
+        }
+        return blockId;
+    };
 
     for (auto& block : blocks) {
         block.terminator = Terminator{};
@@ -1190,9 +1199,10 @@ void GraphBuilder::linkBlocks(std::vector<BasicBlock>& blocks, const RdnaProgram
         } else if (last.op == RdnaOpcode::SSetpcB64) {
             std::uint32_t target = 0;
             if (const SwappcCall* returnCall = findReturnAt(calls, block.instructionEnd - 1u); returnCall != nullptr) {
+                const auto returnBlock = programCounterToBlock.at(returnCall->returnTargetProgramCounter);
                 block.terminator.kind = TerminatorKind::Branch;
                 block.terminator.condition = BranchCondition::Always;
-                block.terminator.trueBlock = programCounterToBlock.at(returnCall->returnTargetProgramCounter);
+                block.terminator.trueBlock = program.instructions[returnCall->callIndex].op == RdnaOpcode::SCallB64 ? skipBranchRelays(returnBlock) : returnBlock;
             } else if (!resolveSetpcTarget(program, block.instructionEnd - 1u, target)) {
                 BoundedJumpTable table;
                 if (!resolveBoundedJumpTable(program, block.instructionEnd - 1u, table)) throw std::invalid_argument("unsupported dynamic s_setpc_b64 at program counter " + toHexString(last.programCounter));

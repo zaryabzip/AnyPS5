@@ -302,9 +302,12 @@ static void CheckTableCalls() {
     const auto cfg = BuildCode(linked, linkedSwappc);
     const auto block = [&](std::uint32_t word) { return cfg.FindBlockByProgramCounter(word * 4u).id; };
     Require(cfg.FindBlockByProgramCounter(26u * 4u).terminator.trueBlock == block(28u));
-    Require(cfg.FindBlockByProgramCounter(28u * 4u).terminator.trueBlock == block(27u));
+    Require(cfg.FindBlockByProgramCounter(28u * 4u).terminator.trueBlock == block(10u));
     Require(cfg.FindBlockByProgramCounter(45u * 4u).terminator.trueBlock == block(47u));
-    Require(cfg.FindBlockByProgramCounter(47u * 4u).terminator.trueBlock == block(46u));
+    Require(cfg.FindBlockByProgramCounter(47u * 4u).terminator.trueBlock == block(10u));
+    const auto predecessors = [&](std::uint32_t word) { return cfg.FindBlockByProgramCounter(word * 4u).predecessors; };
+    Require(std::ranges::find(predecessors(27u), block(28u)) == predecessors(27u).end() && std::ranges::find(predecessors(46u), block(47u)) == predecessors(46u).end());
+    Require(std::ranges::find(predecessors(10u), block(28u)) != predecessors(10u).end() && std::ranges::find(predecessors(10u), block(47u)) != predecessors(10u).end());
     Require(cfg.unlinkedCallProgramCounters == std::vector<std::uint32_t>{53u * 4u});
     static_cast<void>(TranslateCode(linked, linkedSwappc));
 
@@ -318,7 +321,7 @@ static void CheckTableCalls() {
     farSwappc.linkedCallFallbacks = farLinked.fallbacks;
     const auto farCfg = BuildCode(farLinked.code, farSwappc);
     Require(farCfg.FindBlockByProgramCounter(farCall * 4u).terminator.trueBlock == farCfg.FindBlockByProgramCounter((farCall + 2u) * 4u).id);
-    Require(farCfg.FindBlockByProgramCounter((farCall + 2u) * 4u).terminator.trueBlock == farCfg.FindBlockByProgramCounter((farCall + 1u) * 4u).id);
+    Require(farCfg.FindBlockByProgramCounter((farCall + 2u) * 4u).terminator.trueBlock == farCfg.FindBlockByProgramCounter(10u * 4u).id);
     auto twoCallers = caller;
     twoCallers.pop_back();
     twoCallers.insert(twoCallers.end(), caller.begin(), caller.end());
