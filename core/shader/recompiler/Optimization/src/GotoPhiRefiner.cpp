@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <map>
 #include <set>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -18,6 +19,20 @@ struct Fact {
     const IrValue* condition = nullptr;
     bool value = false;
 };
+
+// One refinement or restriction under one set of facts, with the junction blocks it relied on. A
+// pending entry is one still being computed further up the recursion.
+struct Memo {
+    IrValue* result = nullptr;
+    std::vector<std::size_t> relied;
+    bool done = false;
+};
+
+IrValue* Reuse(const Memo& memo, std::set<std::size_t>& relied, IrValue* pending) {
+    if (!memo.done) return pending;
+    relied.insert(memo.relied.begin(), memo.relied.end());
+    return memo.result;
+}
 
 std::vector<IrBlock*> ReversePostOrder(IrBlock& entry) {
     std::vector<IrBlock*> order;
@@ -54,9 +69,13 @@ public:
         for (std::size_t position = 0; position < m_order.size(); ++position) m_index[m_order[position]] = position;
         ComputeDominators();
         const auto facts = CollectFacts();
+        std::map<std::vector<std::pair<const IrValue*, bool>>, std::size_t> factSets;
         std::uint32_t replaced = 0;
         for (std::size_t position = 0; position < m_order.size(); ++position) {
             if (facts[position].empty()) continue;
+            std::vector<std::pair<const IrValue*, bool>> key;
+            for (const auto& fact : facts[position]) key.emplace_back(fact.condition, fact.value);
+            const auto factSet = factSets.try_emplace(std::move(key), factSets.size()).first->second;
             for (IrValue* inst : m_order[position]->Instructions()) {
                 if (inst->IsPhi()) continue;
                 for (std::size_t operand = 0; operand < inst->ArgumentCount(); ++operand) {
@@ -64,7 +83,7 @@ public:
                     if (argument == nullptr) continue;
                     IrValue* value = argument->Resolve();
                     if (!value->IsPhi() || value->Type() == IrType::Bool) continue;
-                    if (IrValue* refined = Refined(value, position, facts[position]); refined != nullptr && refined != value) {
+                    if (IrValue* refined = Refined(value, position, facts[position], factSet); refined != nullptr && refined != value) {
                         inst->ReplaceArgument(operand, refined);
                         ++replaced;
                     }
@@ -172,9 +191,9 @@ private:
         return facts;
     }
 
-    IrValue* Refined(IrValue* value, std::size_t use, const std::vector<Fact>& facts) {
+    IrValue* Refined(IrValue* value, std::size_t use, const std::vector<Fact>& facts, std::size_t factSet) {
         std::set<std::size_t> relied;
-        IrValue* refined = RefineValue(value, facts, relied, 0u);
+        IrValue* refined = RefineValue(value, facts, factSet, relied, 0u);
         if (refined == nullptr || refined == value) return nullptr;
         refined = refined->Resolve();
         if (refined->Type() != value->Type()) return nullptr;
@@ -191,23 +210,42 @@ private:
         return refined;
     }
 
-    IrValue* RefineValue(IrValue* value, const std::vector<Fact>& facts, std::set<std::size_t>& relied, std::size_t depth) {
+    IrValue* RefineValue(IrValue* value, const std::vector<Fact>& facts, std::size_t factSet, std::set<std::size_t>& relied, std::size_t depth) {
         value = value->Resolve();
         if (!value->IsPhi() || depth > MaxRefinementDepth) return value;
-        for (const auto& fact : facts) {
-            if (fact.condition == value || fact.condition->Parent() != value->Parent()) continue;
-            if (IrValue* restricted = Restrict(*value, *fact.condition, fact.value, facts, relied, depth + 1u)) {
-                const auto block = m_index.find(value->Parent());
-                if (block == m_index.end()) return nullptr;
-                relied.insert(block->second);
-                return RefineValue(restricted, facts, relied, depth + 1u);
+        const auto [entry, inserted] = m_refined.try_emplace({factSet, value});
+        if (!inserted) return Reuse(entry->second, relied, value);
+        IrValue* result = value;
+        std::set<std::size_t> own;
+        if (const auto block = m_index.find(value->Parent()); block != m_index.end()) {
+            for (const auto& fact : facts) {
+                if (fact.condition == value || fact.condition->Parent() != value->Parent()) continue;
+                std::set<std::size_t> attempt;
+                if (IrValue* restricted = Restrict(*value, *fact.condition, fact.value, facts, factSet, attempt, depth + 1u)) {
+                    attempt.insert(block->second);
+                    result = RefineValue(restricted, facts, factSet, attempt, depth + 1u);
+                    own = std::move(attempt);
+                    break;
+                }
             }
         }
-        return value;
+        entry->second = Memo{result, {own.begin(), own.end()}, true};
+        relied.insert(own.begin(), own.end());
+        return result;
     }
 
-    IrValue* Restrict(const IrValue& phi, const IrValue& guardPhi, bool expected, const std::vector<Fact>& facts, std::set<std::size_t>& relied, std::size_t depth) {
+    IrValue* Restrict(const IrValue& phi, const IrValue& guardPhi, bool expected, const std::vector<Fact>& facts, std::size_t factSet, std::set<std::size_t>& relied, std::size_t depth) {
         if (depth > MaxRefinementDepth) return nullptr;
+        const auto [entry, inserted] = m_restricted.try_emplace({factSet, &phi, &guardPhi, expected});
+        if (!inserted) return Reuse(entry->second, relied, nullptr);
+        std::set<std::size_t> own;
+        IrValue* single = RestrictArms(phi, guardPhi, expected, facts, factSet, own, depth);
+        entry->second = Memo{single, single != nullptr ? std::vector<std::size_t>(own.begin(), own.end()) : std::vector<std::size_t>{}, true};
+        if (single != nullptr) relied.insert(own.begin(), own.end());
+        return single;
+    }
+
+    IrValue* RestrictArms(const IrValue& phi, const IrValue& guardPhi, bool expected, const std::vector<Fact>& facts, std::size_t factSet, std::set<std::size_t>& relied, std::size_t depth) {
         IrValue* single = nullptr;
         for (std::size_t index = 0; index < phi.ArgumentCount(); ++index) {
             const IrBlock* predecessor = phi.PhiBlock(index);
@@ -218,14 +256,14 @@ private:
             IrValue* kept = nullptr;
             if (guard->HasImmediate()) {
                 if (guard->ImmediateBool() != expected) continue;
-                kept = RefineValue(arm, facts, relied, depth + 1u);
+                kept = RefineValue(arm, facts, factSet, relied, depth + 1u);
             } else if (guard->IsPhi() && arm->IsPhi() && guard->Parent() == arm->Parent()) {
-                kept = Restrict(*arm, *guard, expected, facts, relied, depth + 1u);
+                kept = Restrict(*arm, *guard, expected, facts, factSet, relied, depth + 1u);
                 const auto block = m_index.find(arm->Parent());
                 if (kept == nullptr || block == m_index.end()) return nullptr;
                 relied.insert(block->second);
             } else {
-                kept = RefineValue(arm, facts, relied, depth + 1u);
+                kept = RefineValue(arm, facts, factSet, relied, depth + 1u);
             }
             if (kept == nullptr) return nullptr;
             kept = kept->Resolve();
@@ -245,6 +283,8 @@ private:
     std::vector<std::size_t> m_enter;
     std::vector<std::size_t> m_leave;
     std::map<std::pair<std::size_t, std::size_t>, std::vector<bool>> m_reachable;
+    std::map<std::pair<std::size_t, const IrValue*>, Memo> m_refined;
+    std::map<std::tuple<std::size_t, const IrValue*, const IrValue*, bool>, Memo> m_restricted;
 };
 
 }
