@@ -107,7 +107,7 @@ int main() {
 
     Require(sceRudpEnableInternalIOThread(0, 0) == notInitialized);
 
-    Require(sceRudpSetEventHandler(Handler, nullptr) == 0);
+    Require(sceRudpSetEventHandler(Handler, nullptr) == notInitialized);
 
     Require(sceRudpBind(0, 0, 0, 0) == notInitialized);
     Require(sceRudpBind(12345, 0, 0, 0) == notInitialized);
@@ -139,7 +139,7 @@ int main() {
     Require(sceRudpEnableInternalIOThread(0, 0) == 0);
     Require(sceRudpEnableInternalIOThread(1024, 1) == 0);
 
-    Require(sceRudpBind(12345, 0, 0, 0) == invalidContextId);
+    Require(sceRudpBind(12345, 0, 0, 2) == invalidContextId);
 
     Require(sceRudpSetOption(12345, 0, nullptr, 0) == invalidContextId);
     Require(sceRudpGetOption(12345, 0, nullptr, 0) == invalidContextId);
@@ -176,7 +176,7 @@ int main() {
     }
     Require(activationUnsupported);
 
-    Require(sceRudpBind(ctx, 0, 0, 0) == 0);
+    Require(sceRudpBind(ctx, 5, 0, 2) == 0);
 
     Require(sceRudpSetOption(ctx, 0, nullptr, 0) == invalidOption);
     CheckOptions(ctx);
