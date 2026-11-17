@@ -1,0 +1,5 @@
+# libSceNpPartnerSubscription
+
+## change [libSceNpPartnerSubscription named exports]
+
+- [libSceNpPartnerSubscription named exports](../../../core/libs/prx/libSceNpPartnerSubscription/Export.cpp) - both take no arguments in firmware 13.42 ([reading](https://github.com/boykopovar/AnyPS5/issues/21843#issuecomment-6939237067), disassembly only, not run on a console). `sceNpPartnerSubscriptionInitialize` throws, since it returns the answer of the `SceNpPartnerSubs` IPMI service, which nothing here provides. `sceNpPartnerSubscriptionTerminate` returns `0x819D2001`, the console's answer before a successful Initialize. The pinned [firmware 13.60 inventory](https://github.com/xdCloudy/PS5-13.60-Function-Stub-Library/blob/bfec40deb4c47a17d7603ee2bc79aa6862c0c56b/data/firmware-13.60/libscenppartnersubscription-5a04610102.jsonl) identifies the two name/NID pairs below; the pinned [module map](https://github.com/boykopovar/ps5-nid-map/blob/cc1d586fddab576a520f226da6b2632b031e6d09/data/Modules/libSceNpPartnerSubscription.inc) assigns them to `libSceNpPartnerSubscription.sprx`.

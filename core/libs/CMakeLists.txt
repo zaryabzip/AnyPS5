@@ -1367,6 +1367,16 @@ if(BUILD_TESTING)
             ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:libSceSaveData.native>")
     endif()
 
+    add_test_executable(guest_np_partner_subscription_tests tests/GuestNpPartnerSubscription.cpp)
+    target_include_directories(guest_np_partner_subscription_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(guest_np_partner_subscription_tests PRIVATE libSceNpPartnerSubscription libc)
+    configure_windows_unwind(guest_np_partner_subscription_tests)
+    add_test(NAME guest_np_partner_subscription COMMAND guest_np_partner_subscription_tests)
+    if(WIN32)
+        set_tests_properties(guest_np_partner_subscription PROPERTIES
+            ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:libSceNpPartnerSubscription>")
+    endif()
+
     add_test_executable(guest_kernel_sys_mqueue_tests tests/GuestKernelSysMqueue.cpp)
     target_include_directories(guest_kernel_sys_mqueue_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(guest_kernel_sys_mqueue_tests PRIVATE libkernel_sys libkernel libc)
