@@ -101,6 +101,24 @@ std::int32_t APS5_VABI InvalidDataChunk(const void** data, std::size_t* size, vo
     return 1;
 }
 
+struct ProgressProbe {
+    std::int32_t expId = 0;
+    int progress = -1;
+};
+
+std::int32_t APS5_VABI ProbeProgress(const void** data, std::size_t* size, void* userData) {
+    auto* probe = static_cast<ProgressProbe*>(userData);
+    probe->progress = sceContentExportGetProgress(probe->expId);
+    *data = "j";
+    *size = 1;
+    return 1;
+}
+
+std::string ReadGuestFile(const std::string& guestPath) {
+    std::ifstream file(ResolveDiskPath_nid_no_patch(guestPath.c_str()), std::ios::binary);
+    return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+}
+
 struct OldChunks {
     int step = 0;
 };
@@ -301,6 +319,44 @@ int main() {
     Require(ExportWithThumbnail(5, &plain, &callback, "image/jpeg", &callback) == InvalidContentType);
     Require(sceContentExportGetProgress(5) == 100);
     Require(ExportWithThumbnail(4, &unterminated, &callback, "image/jpeg", &callback) == InvalidContentType);
+    DataChunks contentChunks;
+    std::string thumbnailBytes = "jpeg";
+    const ContentExportCallbackParam contentData{11, reinterpret_cast<void*>(&ProvideChunks), &contentChunks};
+    const ContentExportCallbackParam thumbnailData{thumbnailBytes.size(), reinterpret_cast<void*>(&SingleChunk), &thumbnailBytes};
+    char withThumbnail[256]{};
+    const ContentExportCallbackParam shortContent{10, reinterpret_cast<void*>(&ProvideChunks), &contentChunks};
+    Require(sceContentExportGetProgress(0) == 0);
+    Require(sceContentExportFromDataWithThumbnail(0, &png, &shortContent, "image/jpeg", &thumbnailData, withThumbnail, sizeof(withThumbnail)) == InvalidArgument);
+    Require(sceContentExportGetProgress(0) == 100);
+    contentChunks = DataChunks{};
+    Require(sceContentExportGetProgress(1) == 0);
+    Require(sceContentExportFromDataWithThumbnail(1, &png, &contentData, "image/jpeg", &thumbnailData, withThumbnail, sizeof(withThumbnail)) == 0);
+    Require(sceContentExportGetProgress(1) == 100);
+    setSdk(0x05000000);
+    Require(sceContentExportGetProgress(1) == InvalidState);
+    setSdk(sdkVersion);
+    const std::string contentGuestPath = withThumbnail;
+    Require(contentGuestPath.starts_with("/av_contents/content_tmp/sce_cmgcnt") && contentGuestPath.ends_with(".png"));
+    std::string thumbnailGuestPath = contentGuestPath;
+    thumbnailGuestPath.replace(thumbnailGuestPath.find("sce_cmgcnt"), 10, "sce_cmgthm");
+    thumbnailGuestPath.replace(thumbnailGuestPath.size() - 4, 4, ".jpg");
+    Require(ReadGuestFile(contentGuestPath) == "hello world");
+    Require(ReadGuestFile(thumbnailGuestPath) == "jpeg");
+    const ContentExportCallbackParam longThumbnailData{5, reinterpret_cast<void*>(&SingleChunk), &thumbnailBytes};
+    contentChunks = DataChunks{};
+    Require(sceContentExportFromDataWithThumbnail(1, &png, &contentData, "image/jpeg", &longThumbnailData, nullptr, 0) == InvalidArgument);
+    const ContentExportCallbackParam invalidData{5, reinterpret_cast<void*>(&InvalidChunks), nullptr};
+    Require(sceContentExportFromDataWithThumbnail(1, &png, &invalidData, "image/jpeg", &thumbnailData, nullptr, 0) == static_cast<int>(0x809D301Bu));
+    contentChunks = DataChunks{};
+    Require(sceContentExportFromDataWithThumbnail(1, &png, &contentData, "image/jpeg", &invalidData, nullptr, 0) == static_cast<int>(0x809D301Bu));
+    contentChunks = DataChunks{};
+    errno = 71;
+    Require(sceContentExportFromDataWithThumbnail(1, &png, &contentData, "image/jpeg", &thumbnailData, reinterpret_cast<char*>(0x10), sizeof(withThumbnail)) == InvalidArgument);
+    Require(errno == 71);
+    ProgressProbe probe{1};
+    const ContentExportCallbackParam probeData{1, reinterpret_cast<void*>(&ProbeProgress), &probe};
+    Require(sceContentExportFromDataWithThumbnail(1, &png, &probeData, "image/jpeg", &thumbnailData, nullptr, 0) == 0);
+    Require(probe.progress == 100);
     Require(ExportTitleIds(9, &plain, "/x", "/y", "[\"CUSA04934\"]") == InvalidContentType);
     Require(sceContentExportGetProgress(9) == 100);
     Require(ExportTitleIds(3, &plain, "/x", longestThumbnail.c_str(), longestList.c_str()) == InvalidContentType);

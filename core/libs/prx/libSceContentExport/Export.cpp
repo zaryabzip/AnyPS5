@@ -286,6 +286,76 @@ bool SupportedContentType(const char* contentType, std::int32_t sdkVersion) {
     return std::strcmp(contentType, "video/mp4") == 0 || std::strcmp(contentType, "image/jpeg") == 0 ||
         std::strcmp(contentType, "image/png") == 0 || std::strcmp(contentType, "image/gif") == 0;
 }
+
+void* SessionPointer(std::int32_t expId) {
+    return reinterpret_cast<void*>(reinterpret_cast<std::uintptr_t>(&g_sessionMutex) + static_cast<std::uintptr_t>(expId));
+}
+
+int WriteCallbackFile(const char* guestPath, ContentExportDataCallback callback, void* userData, bool modernCallback, std::size_t& written) {
+    try {
+        const auto hostPath = ResolveDiskPath_nid_no_patch(guestPath);
+        std::error_code directoryError;
+        std::filesystem::create_directories(hostPath.parent_path(), directoryError);
+        if (directoryError) return ErrorStorage;
+        std::ofstream file(hostPath, std::ios::binary | std::ios::trunc);
+        if (!file) return ErrorGeneric;
+        const void* data = nullptr;
+        std::size_t size = 0;
+        std::array<char, 4096> staging{};
+        for (;;) {
+            const std::int32_t result = callback(&data, &size, userData);
+            if (modernCallback && result != 0 && result != 1) return ErrorDataCallback;
+            if (size != 0) {
+                if (data == nullptr) return ErrorStorage;
+                const auto address = reinterpret_cast<std::uintptr_t>(data);
+                if (size > std::numeric_limits<std::uintptr_t>::max() - address) return ErrorStorage;
+                for (std::size_t offset = 0; offset < size;) {
+                    const std::size_t count = std::min(staging.size(), size - offset);
+                    const int savedErrno = errno;
+                    const bool copied = GuestCopyIn_nid_no_patch(staging.data(), reinterpret_cast<const void*>(address + offset), count);
+                    errno = savedErrno;
+                    if (!copied) return ErrorStorage;
+                    file.write(staging.data(), static_cast<std::streamsize>(count));
+                    if (!file) return ErrorStorage;
+                    offset += count;
+                }
+                written += size;
+            }
+            if (result == 1 || (!modernCallback && result < 0)) break;
+        }
+        file.close();
+        if (!file) return ErrorStorage;
+    } catch (const std::bad_alloc&) {
+        return ErrorNoMemory;
+    } catch (const std::filesystem::filesystem_error&) {
+        return ErrorGeneric;
+    }
+    return 0;
+}
+
+int CopyExportPath(char* path, std::size_t pathBufferLength, const std::array<char, MaximumPathLength + 1>& guestPath) {
+    if (path == nullptr) return 0;
+    const std::size_t length = std::min(pathBufferLength, MaximumPathLength);
+    const int savedErrno = errno;
+    const bool copied = GuestCopyOut_nid_no_patch(path, guestPath.data(), length);
+    errno = savedErrno;
+    return copied ? 0 : ErrorInvalidArgument;
+}
+
+int WriteDataWithThumbnail(std::int32_t expId, const char* subtype, const ContentExportCallbackParam& content, const ContentExportCallbackParam& thumbnail, char* path, std::size_t pathBufferLength) {
+    const bool modernCallback = ApplicationCompiledSdkVersion() >= MemoryPoolSdkVersion;
+    std::array<char, MaximumPathLength + 1> contentPath{};
+    std::snprintf(contentPath.data(), contentPath.size(), "/av_contents/content_tmp/sce_cmgcnt%p.%s", SessionPointer(expId), subtype);
+    std::size_t written = 0;
+    if (const int error = WriteCallbackFile(contentPath.data(), reinterpret_cast<ContentExportDataCallback>(content.func), content.user_data, modernCallback, written)) return error;
+    if (written != content.content_length) return ErrorInvalidArgument;
+    std::array<char, MaximumPathLength + 1> thumbnailPath{};
+    std::snprintf(thumbnailPath.data(), thumbnailPath.size(), "/av_contents/content_tmp/sce_cmgthm%p.jpg", SessionPointer(expId));
+    written = 0;
+    if (const int error = WriteCallbackFile(thumbnailPath.data(), reinterpret_cast<ContentExportDataCallback>(thumbnail.func), thumbnail.user_data, modernCallback, written)) return error;
+    if (written != thumbnail.content_length) return ErrorInvalidArgument;
+    return CopyExportPath(path, pathBufferLength, contentPath);
+}
 }
 
 extern "C" {
@@ -330,57 +400,11 @@ int APS5_VABI sceContentExportFromData(std::int32_t expId, const ContentExportPa
     const char* subtype = std::strrchr(localParam.content_type, '/');
     if (subtype == nullptr || std::strlen(subtype + 1) < 2) return ErrorInvalidArgument;
     std::array<char, MaximumPathLength + 1> guestPath{};
-    std::snprintf(guestPath.data(), guestPath.size(), "/av_contents/content_tmp/sce_cmgcnt%p.%s",
-        reinterpret_cast<void*>(reinterpret_cast<std::uintptr_t>(&g_sessionMutex) + static_cast<std::uintptr_t>(expId)), subtype + 1);
-    try {
-        const auto hostPath = ResolveDiskPath_nid_no_patch(guestPath.data());
-        std::error_code directoryError;
-        std::filesystem::create_directories(hostPath.parent_path(), directoryError);
-        if (directoryError) return ErrorStorage;
-        std::ofstream file(hostPath, std::ios::binary | std::ios::trunc);
-        if (!file) return ErrorGeneric;
-        const void* data = nullptr;
-        std::size_t size = 0;
-        std::size_t written = 0;
-        std::array<char, 4096> staging{};
-        const bool modernCallback = sdkVersion >= static_cast<std::int32_t>(MemoryPoolSdkVersion);
-        for (;;) {
-            const std::int32_t result = callback(&data, &size, userData);
-            if (modernCallback && result != 0 && result != 1) return ErrorDataCallback;
-            if (size != 0) {
-                if (data == nullptr) return ErrorStorage;
-                const auto address = reinterpret_cast<std::uintptr_t>(data);
-                if (size > std::numeric_limits<std::uintptr_t>::max() - address) return ErrorStorage;
-                for (std::size_t offset = 0; offset < size;) {
-                    const std::size_t count = std::min(staging.size(), size - offset);
-                    const int savedErrno = errno;
-                    const bool copied = GuestCopyIn_nid_no_patch(staging.data(), reinterpret_cast<const void*>(address + offset), count);
-                    errno = savedErrno;
-                    if (!copied) return ErrorStorage;
-                    file.write(staging.data(), static_cast<std::streamsize>(count));
-                    if (!file) return ErrorStorage;
-                    offset += count;
-                }
-                written += size;
-            }
-            if (result == 1 || (!modernCallback && result < 0)) break;
-        }
-        file.close();
-        if (!file) return ErrorStorage;
-        if (written != contentLength) return ErrorInvalidArgument;
-    } catch (const std::bad_alloc&) {
-        return ErrorNoMemory;
-    } catch (const std::filesystem::filesystem_error&) {
-        return ErrorGeneric;
-    }
-    if (path != nullptr) {
-        const std::size_t length = std::min(pathBufferLength, MaximumPathLength);
-        const int savedErrno = errno;
-        const bool copied = GuestCopyOut_nid_no_patch(path, guestPath.data(), length);
-        errno = savedErrno;
-        if (!copied) return ErrorInvalidArgument;
-    }
-    return 0;
+    std::snprintf(guestPath.data(), guestPath.size(), "/av_contents/content_tmp/sce_cmgcnt%p.%s", SessionPointer(expId), subtype + 1);
+    std::size_t written = 0;
+    if (const int error = WriteCallbackFile(guestPath.data(), callback, userData, sdkVersion >= static_cast<std::int32_t>(MemoryPoolSdkVersion), written)) return error;
+    if (written != contentLength) return ErrorInvalidArgument;
+    return CopyExportPath(path, pathBufferLength, guestPath);
 }
 
 int APS5_VABI sceContentExportFromFile(std::int32_t expId, const ContentExportParam* param, const char* sourcePath, char* path, std::size_t pathBufferLength) {
@@ -525,7 +549,7 @@ int APS5_VABI sceContentExportFromDataWithThumbnail(std::int32_t expId, const Co
     if (!SessionIdInRange(expId) || param == nullptr || contentCallbackParam == nullptr || thumbnailCallbackParam == nullptr) return ErrorInvalidArgument;
     ContentExportParam localParam{};
     if (const int error = CopyExportParam(param, localParam)) return error;
-    std::lock_guard lock(g_sessionMutex);
+    std::unique_lock lock(g_sessionMutex);
     const auto session = g_sessions.find(expId);
     if (session == g_sessions.end()) return ErrorInvalidArgument;
     ContentExportCallbackParam content{};
@@ -541,8 +565,12 @@ int APS5_VABI sceContentExportFromDataWithThumbnail(std::int32_t expId, const Co
         std::string type;
         if (thumbnailType == nullptr || CopyGuestString_nid_no_patch(thumbnailType, ThumbnailType.size() + 2, type) != 0 || type != ThumbnailType) return endExport(ErrorThumbnailType);
     }
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+    lock.unlock();
+    const int result = WriteDataWithThumbnail(expId, std::strrchr(localParam.content_type, '/') + 1, content, thumbnail, path, pathBufferLength);
+    lock.lock();
+    const auto ended = g_sessions.find(expId);
+    if (ended != g_sessions.end()) ended->second = SessionState::Ended;
+    return result;
 }
 
 int APS5_VABI sceContentExportTerm(void) {
